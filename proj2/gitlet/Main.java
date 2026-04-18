@@ -1,9 +1,5 @@
 package gitlet;
 
-import java.util.Map;
-import java.util.TreeMap;
-
-import static gitlet.Utils.*;
 /** Driver class for Gitlet, a subset of the Git version-control system.
  *  @author MockCanine
  */
@@ -14,11 +10,9 @@ public class Main {
      */
     public static void main(String[] args) {
         if (args.length == 0) {
-            message("Please enter a command.");
-            System.exit(0);
+            abort("Please enter a command.");
         }
         String firstArg = args[0];
-        // TODO: Pay attention to format error, not just args number error
         switch (firstArg) {
             case "init":
                 validateNumArgs(args, 1);
@@ -26,31 +20,65 @@ public class Main {
                 break;
             case "add":
                 validateNumArgs(args, 2);
+                GitletIO.isInRepo();
                 Repo.add(args[1]);
                 break;
             case "commit":
                 validateNumArgs(args, 2);
+                GitletIO.isInRepo();
                 Repo.commit(args[1]);
                 break;
             case "rm":
                 validateNumArgs(args, 2);
+                GitletIO.isInRepo();
                 Repo.rm(args[1]);
                 break;
             case "log":
                 validateNumArgs(args, 1);
+                GitletIO.isInRepo();
                 Repo.log();
                 break;
             case "global-log":
                 validateNumArgs(args, 1);
+                GitletIO.isInRepo();
                 Repo.globalLog();
                 break;
+            case "find":
+                validateNumArgs(args, 2);
+                GitletIO.isInRepo();
+                Repo.find(args[1]);
+                break;
+            case "status":
+                validateNumArgs(args, 1);
+                GitletIO.isInRepo();
+                Repo.status();
+                break;
             case "checkout":
-                // Do format check inside this func
-                Repo.checkout(parseCheckout(args));
+                GitletIO.isInRepo();
+                Repo.checkout(args);
+                break;
+            case "branch":
+                validateNumArgs(args, 2);
+                GitletIO.isInRepo();
+                Repo.branch(args[1]);
+                break;
+            case "rm-branch":
+                validateNumArgs(args, 2);
+                GitletIO.isInRepo();
+                Repo.rmBranch(args[1]);
+                break;
+            case "reset":
+                validateNumArgs(args, 2);
+                GitletIO.isInRepo();
+                Repo.reset(args[1]);
+                break;
+            case "merge":
+                validateNumArgs(args, 2);
+                GitletIO.isInRepo();
+                Repo.merge(args[1]);
                 break;
             default:
-                message("No command with that name exists.");
-                System.exit(0);
+                abort("No command with that name exists.");
         }
     }
 
@@ -60,29 +88,15 @@ public class Main {
      */
     public static void validateNumArgs(String[] args, int n) {
         if (args.length != n) {
-            message("Incorrect operands.");
-            System.exit(0);
+            abort("Incorrect operands.");
         }
     }
 
     /**
-     * Parse the arguments for checkout command,
-     * returns a map which may contains keys [branchName, commitId, fileName],
+     * Print message and abort program
      */
-    public static Map<String, String> parseCheckout(String[] args) {
-        // TODO: handle branch later
-        int len = args.length;
-        Map<String, String> map = new TreeMap<>();
-        if (len == 3 && args[1].equals("--")) {
-            map.put("fileName", args[2]);
-        } else if (len == 4 && args[2].equals("--")) {
-            map.put("commitId", args[1]);
-            map.put("fileName", args[3]);
-        }
-        if (map.isEmpty()) {
-            message("Incorrect operands.");
-            System.exit(0);
-        }
-        return map;
+    public static void abort(String msg) {
+        Utils.message(msg);
+        System.exit(0);
     }
 }

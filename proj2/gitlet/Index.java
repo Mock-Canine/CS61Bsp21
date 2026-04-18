@@ -1,43 +1,57 @@
 package gitlet;
 
+import java.io.File;
 import java.io.Serializable;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 
-import static gitlet.Utils.*;
+import static gitlet.Utils.sha1;
+import static gitlet.GitletIO.CWD;
 
 /**
- * Represent the content inside index file(staging area)
- * Caution: every operation except saveIndex() will not reflect the change
- * to index file, manually invoking is needed after all possible operations.
+ * Represent the staging area
+ * Caution: any operation except saveIndex(), resetIndex() will not reflect the change
+ * to index file.
+ * In other words, after all possible operations of adding/removing files from staging area or
+ * making a commit operation, manually saving is needed.
  */
 public class Index implements Serializable {
     /** Staging area for add containing (name, hash) for blobs. */
-    private final TreeMap<String, String> addition = new TreeMap<>();
-    /** Staging area for rm containing name for blobs. */
-    private final TreeSet<String> removal = new TreeSet<>();
+    private final Map<String, String> addition = new HashMap<>();
+    /** Staging area for remove containing name for blobs. */
+    private final Set<String> removal = new HashSet<>();
 
     /**
      * Retrieve content from index file
      */
     public static Index fromFile() {
-        return readObject(Repo.INDEX_FI, Index.class);
+        return GitletIO.getIndex();
+    }
+
+    /**
+     * Clear staging area to empty and save to file
+     */
+    public static void resetIndex() {
+        Index index = new Index();
+        index.saveIndex();
     }
 
     /**
      * Create or overwrite index file
      */
     public void saveIndex() {
-        writeObject(Repo.INDEX_FI, this);
+        GitletIO.saveIndex(this);
     }
 
     /**
      * Stage file for addition
+     * Assume file exists in CWD
      */
-    // TODO: the interface need hash as argument? or calculate inside it
-    public void stageForAddition(String name, String hash) {
-        addition.put(name, hash);
+    public void stageForAddition(String fileName) {
+        File fp = Utils.join(CWD, fileName);
+        byte[] content = Utils.readContents(fp);
+        String hash = sha1((Object) content);
+        addition.put(fileName, hash);
+        GitletIO.saveBlob(hash, content);
     }
 
     /**
@@ -76,13 +90,49 @@ public class Index implements Serializable {
     }
 
     /**
-     * Integrate files tracked by staging areas into a commit, and clear staging areas
-     * @param blobs (name, hash) blob map in commit, will mutate the map
+     * Integrate files in staging areas into a commit, and clear staging areas
+     * Return the integrated result blobs
      */
-    public void updateBlob(Map<String, String> blobs) {
+    public Map<String, String> commit(Map<String, String> blobs) {
+        Map<String, String> newBlobs = new HashMap<>(blobs);
         blobs.putAll(addition);
         blobs.keySet().removeAll(removal);
         addition.clear();
         removal.clear();
+        return newBlobs;
+    }
+
+    @Override
+    public String toString() {
+        List<String> staged = new ArrayList<>(addition.keySet());
+        List<String> removed = new ArrayList<>(removal);
+        staged.sort(null);
+        removed.sort(null);
+        String content = "";
+        if (!staged.isEmpty()) {
+            content += """
+                === Staged Files ===
+                %s
+            
+                """.formatted(String.join("\n", staged));
+        } else {
+            content += """
+                === Staged Files ===
+            
+                """;
+        }
+        if (!removed.isEmpty()) {
+            content += """
+                === Removed Files ===
+                %s
+            
+                """.formatted(String.join("\n", removed));
+        } else {
+            content += """
+                === Removed Files ===
+            
+                """;
+        }
+        return content;
     }
 }
