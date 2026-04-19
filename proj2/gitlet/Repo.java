@@ -73,7 +73,7 @@ public class Repo {
     public static void globalLog() {
         for (String hash : GitletIO.getCommits()) {
             Commit commit = Commit.fromFile(hash);
-            System.out.println(commit);
+            System.out.print(commit);
         }
     }
 
@@ -168,31 +168,32 @@ public class Repo {
         boolean hasConflict = false;
         for (String f : fileNames) {
             /* Indicate the pair with same file state */
-            boolean currAndMergeIn = sameBlob(curr, mergedIn, f);
-            boolean currAndAncestor = sameBlob(curr, ancestor, f);
-            boolean mergeInAndAncestor = sameBlob(mergedIn, ancestor, f);
+            boolean sameCurrMerge = sameBlob(curr, mergedIn, f);
+            boolean sameCurrAnc = sameBlob(curr, ancestor, f);
+            boolean sameMergeAnc = sameBlob(mergedIn, ancestor, f);
             /* Keep current work:
              * Only current branch create/modify/delete the file
              * No change for both of them
              * */
-            if (mergeInAndAncestor) {
+            if (sameMergeAnc) {
                 continue;
             }
             /* Take in other branch's work:
              * Only other branch create/modify/delete the file
              * */
-            if (currAndAncestor) {
+            if (sameCurrAnc) {
                 if (mergedIn.isTracked(f)) {
                     GitletIO.writeCWD(f, mergedIn.fileHash(f));
                     index.stageForAddition(f);
                 } else {
+                    GitletIO.rmCWD(f);
                     index.stageForRemoval(f);
                 }
             /* Both change the work */
             } else {
                 /* Same way change -> nothing to do */
                 /* Different way change */
-                if (!currAndMergeIn) {
+                if (!sameCurrMerge) {
                     conflictFile(curr, mergedIn, f);
                     index.stageForAddition(f);
                     hasConflict = true;
@@ -203,7 +204,7 @@ public class Repo {
         // Necessary, because manipulating staging area + make commit will happen in one command,
         // but makeCommit() will retrieve index from file
         index.saveIndex();
-        String hash = makeCommit("Merged" + branchName + "into" + GitletIO.head(), branchHash);
+        String hash = makeCommit("Merged " + branchName + " into " + GitletIO.head() + ".", branchHash);
         GitletIO.updateBranch(GitletIO.head(), hash);
         if (hasConflict) {
             System.out.println("Encountered a merge conflict.");
@@ -249,91 +250,38 @@ public class Repo {
     }
 
     /**
-     * Helper class for searching latest ancestor
-     */
-    private static class Node {
-        /** Wrap a commit object */
-        private final Commit commit;
-        /** Track the offspring(head of branch) */
-        private final Commit offspring;
-
-        public Node(Commit commit, Commit offspring) {
-            this.commit = commit;
-            this.offspring = offspring;
-        }
-
-        /**
-         * Check whether the input is its offspring
-         */
-        public boolean isOffspring(Commit one) {
-            return one.equals(offspring);
-        }
-
-        /**
-         * Return the parents wrapper of this commit
-         */
-        public List<Node> getParents() {
-            List<Node> parents = new ArrayList<>();
-            for (String parentHash : commit.getParents()) {
-                Commit parent = Commit.fromFile(parentHash);
-                parents.add(new Node(parent, offspring));
-            }
-            return parents;
-        }
-
-        public Date timeStamp() {
-            return commit.getDate();
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (!(obj instanceof Node)) {
-                return false;
-            }
-            Node other = (Node) obj;
-            return commit.equals(other.commit);
-        }
-    }
-
-    /**
      * Find the latest ancestor for two commits in a commit DAG
      */
     private static Commit latestAncestor(Commit one, Commit other) {
-        Set<Node> oneFamily = new HashSet<>();
-        Set<Node> otherFamily = new HashSet<>();
-        // Contains operation is slow in PQ, avoid add duplicate items to PQ
-        // Construct max heap because Date.compareTo() returns positive for newer date
-        Queue<Node> pq = new PriorityQueue<>(
-                Comparator.comparing(Node::timeStamp, Comparator.reverseOrder())
-        );
-        Node oneNode = new Node(one, one);
-        Node otherNode = new Node(other, other);
-        oneFamily.add(oneNode);
-        otherFamily.add(otherNode);
-        pq.add(oneNode);
-        pq.add(otherNode);
+        TreeSet<Commit> ancestorsOfOne = findAncestors(one);
+        TreeSet<Commit> ancestorsOfOther = findAncestors(other);
+        TreeSet<Commit> commonAncestors = new TreeSet<>(ancestorsOfOne);
+        commonAncestors.retainAll(ancestorsOfOther);
+        return commonAncestors.first();
+    }
 
-        while (true) {
-            Node latest = pq.remove();
-            // Will triggered by initial commit anyway
-            if (oneFamily.contains(latest) && otherFamily.contains(latest)) {
-                return latest.commit;
-            }
-            List<Node> parents = latest.getParents();
-            if (latest.isOffspring(one)) {
-                oneFamily.addAll(parents);
-            } else {
-                otherFamily.addAll(parents);
-            }
-            for (Node parent : parents) {
-                if (!oneFamily.contains(parent) && !otherFamily.contains(parent)) {
-                    pq.add(parent);
+    /**
+     * Find all the ancestors(include itself) for a commit
+     * Return the tree set of its ancestors
+     */
+    private static TreeSet<Commit> findAncestors(Commit target) {
+        // Smallest item in the set has the newest date
+        TreeSet<Commit> ancestors = new TreeSet<>(
+                Comparator.comparing(Commit::getDate, Comparator.reverseOrder())
+        );
+        Queue<Commit> queue = new ArrayDeque<>();
+        queue.add(target);
+        while (!queue.isEmpty()) {
+            Commit commit = queue.poll();
+            ancestors.add(commit);
+            for (String parentHash : commit.getParents()) {
+                Commit parent = Commit.fromFile(parentHash);
+                if (!ancestors.contains(parent)) {
+                    queue.add(parent);
                 }
             }
         }
+        return ancestors;
     }
 
     /**
@@ -384,18 +332,18 @@ public class Repo {
 
     private static void printStagingArea() {
         Index index = Index.fromFile();
-        System.out.println(index);
+        System.out.print(index);
     }
 
     private static void printNotStaged() {
-        System.out.println("""
+        System.out.print("""
                 === Modifications Not Staged For Commit ===
                 
                 """);
     }
 
     private static void printUntracked() {
-        System.out.println("""
+        System.out.print("""
                 === Untracked Files ===
                 
                 """);
@@ -417,6 +365,9 @@ public class Repo {
      * Return the newly made commit hash
      */
     private static String makeCommit(String message, String mergedIn) {
+        if (message.isEmpty()) {
+            abort("Please enter a commit message.");
+        }
         Commit parent = Commit.fromFile(GitletIO.headHash());
         // Cp content, not reference, this can not be detected by test
         // because the change to parent's blobs will not be saved to file

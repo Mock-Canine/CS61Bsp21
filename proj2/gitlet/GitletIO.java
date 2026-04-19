@@ -167,7 +167,7 @@ public class GitletIO {
      */
     public static void rmBranch(String branchName) {
         File fp = Utils.join(HEADS, branchName);
-        Utils.restrictedDelete(fp);
+        fp.delete();
     }
 
     /**

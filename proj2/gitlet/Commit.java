@@ -46,7 +46,7 @@ public class Commit implements Serializable {
     public static void printHistory(String commitHash) {
         while (!commitHash.isEmpty()) {
             Commit commit = Commit.fromFile(commitHash);
-            System.out.println(commit);
+            System.out.print(commit);
             commitHash = commit.parent1Hash;
         }
     }
@@ -159,6 +159,7 @@ public class Commit implements Serializable {
                     commit %s
                     Date: %s
                     %s
+                    
                     """.formatted(hash, dateFormat, message);
         } else {
             return """
@@ -167,6 +168,7 @@ public class Commit implements Serializable {
                     Merge: %s %s
                     Date: %s
                     %s
+                    
                     """.formatted(hash, parent1Hash.substring(0, 7), parent2Hash.substring(0, 7), dateFormat, message);
         }
     }
@@ -181,6 +183,11 @@ public class Commit implements Serializable {
         }
         Commit other = (Commit) o;
         return hash.equals(other.hash);
+    }
+
+    @Override
+    public int hashCode() {
+        return hash.hashCode();
     }
 
     private void assignHash() {

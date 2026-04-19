@@ -118,7 +118,7 @@ public class Index implements Serializable {
         } else {
             content += """
                 === Staged Files ===
-            
+                
                 """;
         }
         if (!removed.isEmpty()) {
@@ -130,7 +130,7 @@ public class Index implements Serializable {
         } else {
             content += """
                 === Removed Files ===
-            
+                
                 """;
         }
         return content;
