@@ -217,9 +217,10 @@ public class Repo {
     private static void conflictFile(Commit curr, Commit other, String fileName) {
         String content = "";
         if (curr.isTracked(fileName)) {
+            // Rely on the newline of the file itself
             content += """
                 <<<<<<< HEAD
-                %s
+                %s\
                 """.formatted(GitletIO.getBlob(curr.fileHash(fileName)));
         } else {
             content += """
@@ -229,14 +230,14 @@ public class Repo {
         if (other.isTracked(fileName)) {
             content += """
                 =======
-                %s
+                %s\
                 >>>>>>>
-                """.formatted(GitletIO.getBlob(other.fileHash(fileName))).trim();
+                """.formatted(GitletIO.getBlob(other.fileHash(fileName)));
         } else {
             content += """
                 =======
                 >>>>>>>
-                """.trim();
+                """;
         }
         File fp = Utils.join(CWD, fileName);
         Utils.writeContents(fp, content);
