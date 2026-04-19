@@ -231,12 +231,12 @@ public class Repo {
                 =======
                 %s
                 >>>>>>>
-                """.formatted(GitletIO.getBlob(other.fileHash(fileName)));
+                """.formatted(GitletIO.getBlob(other.fileHash(fileName))).trim();
         } else {
             content += """
                 =======
                 >>>>>>>
-                """;
+                """.trim();
         }
         File fp = Utils.join(CWD, fileName);
         Utils.writeContents(fp, content);
