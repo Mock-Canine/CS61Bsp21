@@ -4,8 +4,9 @@ import java.io.File;
 import java.io.Serializable;
 import java.util.*;
 
+import static gitlet.Repo.CWD;
+import static gitlet.Repo.REPO;
 import static gitlet.Utils.sha1;
-import static gitlet.GitletIO.CWD;
 
 /**
  * Represent the staging area
@@ -24,7 +25,7 @@ public class Index implements Serializable {
      * Retrieve content from index file
      */
     public static Index fromFile() {
-        return GitletIO.getIndex();
+        return Utils.readObject(REPO.indexPath(), Index.class);
     }
 
     /**
@@ -32,14 +33,14 @@ public class Index implements Serializable {
      */
     public static void resetIndex() {
         Index index = new Index();
-        index.saveIndex();
+        index.save();
     }
 
     /**
      * Create or overwrite index file
      */
-    public void saveIndex() {
-        GitletIO.saveIndex(this);
+    public void save() {
+        Utils.writeObject(REPO.indexPath(), this);
     }
 
     /**
@@ -51,7 +52,7 @@ public class Index implements Serializable {
         byte[] content = Utils.readContents(fp);
         String hash = sha1((Object) content);
         addition.put(fileName, hash);
-        GitletIO.saveBlob(hash, content);
+        REPO.saveBlob(hash, content);
     }
 
     /**
